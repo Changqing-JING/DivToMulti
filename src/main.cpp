@@ -2,15 +2,32 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <exception>
 #ifdef _MSC_VER
+#include <__msvc_int128.hpp>
 #include <intrin.h>
+using uint128 = std::_Unsigned128;
+#else
+using uint128 = __uint128_t;
 #endif
 
 uint64_t umulh(uint64_t x, uint64_t y) {
 #ifdef _MSC_VER
   return __umulh(x, y);
 #else
-  return static_cast<uint64_t>((static_cast<__uint128_t>(x) * y) >> 64ULL);
+  return static_cast<uint64_t>((static_cast<uint128>(x) * y) >> 64ULL);
+#endif
+}
+
+uint64_t clzll(uint64_t x) {
+#ifdef _MSC_VER
+  unsigned long index;
+  if (_BitScanReverse64(&index, x)) {
+    return 63ULL - index;
+  }
+  return 64ULL;
+#else
+  return static_cast<uint64_t>(__builtin_clzll(x));
 #endif
 }
 
@@ -23,7 +40,7 @@ template <uint64_t B> uint64_t get_k(uint64_t d) {
   } else if (d == 2) {
     return B + 1;
   }
-  return B + 64ULL - __builtin_clzll(d - 1);
+  return B + 64ULL - clzll(d - 1);
 }
 
 uint64_t get_m(uint64_t k, uint64_t d) {
@@ -43,15 +60,15 @@ uint64_t get_m(uint64_t k, uint64_t d) {
 }
 
 // 128-bit version for u64div where k can be >= 64
-__uint128_t get_m_128(uint64_t k, uint64_t d) {
+uint128 get_m_128(uint64_t k, uint64_t d) {
   if (k == 128) {
-    // 2^128 doesn't fit in __uint128_t, but ceil(2^128 / d) = floor((2^128 - 1) / d) + 1
-    __uint128_t const max_128 = static_cast<__uint128_t>(-1);
+    // 2^128 doesn't fit in uint128, but ceil(2^128 / d) = floor((2^128 - 1) / d) + 1
+    uint128 const max_128 = static_cast<uint128>(-1);
     return (max_128 / d) + 1;
   }
 
-  __uint128_t const pow_k = static_cast<__uint128_t>(1) << k;
-  __uint128_t const v = pow_k / d;
+  uint128 const pow_k = static_cast<uint128>(1) << k;
+  uint128 const v = pow_k / d;
   if (v * d == pow_k) {
     return v;
   } else {
@@ -140,7 +157,6 @@ void test_large_divisor() {
 namespace i32div {
 int64_t opt_cal_signed(int64_t dividend, int64_t divisor) {
   assert(divisor != 0);
-  uint64_t constexpr B = 32U;
 
   // Handle special case: INT64_MIN / -1 would overflow
   if (dividend == INT64_MIN && divisor == -1) {
@@ -151,8 +167,8 @@ int64_t opt_cal_signed(int64_t dividend, int64_t divisor) {
   bool const negative = (dividend < 0) ^ (divisor < 0);
 
   // Work with absolute values
-  uint64_t const abs_dividend = dividend < 0 ? -static_cast<uint64_t>(dividend) : static_cast<uint64_t>(dividend);
-  uint64_t const abs_divisor = divisor < 0 ? -static_cast<uint64_t>(divisor) : static_cast<uint64_t>(divisor);
+  uint64_t const abs_dividend = dividend < 0 ? 0ULL - static_cast<uint64_t>(dividend) : static_cast<uint64_t>(dividend);
+  uint64_t const abs_divisor = divisor < 0 ? 0ULL - static_cast<uint64_t>(divisor) : static_cast<uint64_t>(divisor);
 
   // Use unsigned algorithm
   uint64_t const result = u32div::opt_cal(abs_dividend, abs_divisor);
@@ -224,13 +240,13 @@ namespace u64div {
 uint64_t opt_cal(uint64_t dividend, uint64_t divisor) {
   constexpr uint64_t B = 64U;
   uint64_t const k = get_k<B>(divisor);
-  __uint128_t const m = get_m_128(k, divisor);
+  uint128 const m = get_m_128(k, divisor);
 
   uint64_t const m_low = static_cast<uint64_t>(m);
   uint64_t const m_high = static_cast<uint64_t>(m >> 64);
 
   uint64_t const prod_low_high = umulh(dividend, m_low);
-  __uint128_t const high_128 = static_cast<__uint128_t>(m_high) * dividend + prod_low_high;
+  uint128 const high_128 = static_cast<uint128>(m_high) * dividend + prod_low_high;
 
   return static_cast<uint64_t>(high_128 >> (k - B));
 }
@@ -283,8 +299,6 @@ void test_rem() {
 void test_overflow_cases() {
   uint64_t const max_val = static_cast<uint64_t>(-1);
 
-  std::cout << "Testing u64div overflow cases..." << std::endl;
-
   uint64_t const test_dividends[] = {
       max_val, max_val - 1, max_val / 2, max_val / 3, 1ULL << 63, (1ULL << 63) - 1, 1ULL << 62, 1ULL << 48, 1ULL << 32,
   };
@@ -304,7 +318,6 @@ void test_overflow_cases() {
     }
   }
 
-  std::cout << "u64div overflow tests passed!" << std::endl;
 }
 
 } // namespace u64div
@@ -323,8 +336,8 @@ int64_t opt_cal_signed(int64_t dividend, int64_t divisor) {
   bool const negative = (dividend < 0) ^ (divisor < 0);
 
   // Work with absolute values
-  uint64_t const abs_dividend = dividend < 0 ? -static_cast<uint64_t>(dividend) : static_cast<uint64_t>(dividend);
-  uint64_t const abs_divisor = divisor < 0 ? -static_cast<uint64_t>(divisor) : static_cast<uint64_t>(divisor);
+  uint64_t const abs_dividend = dividend < 0 ? 0ULL - static_cast<uint64_t>(dividend) : static_cast<uint64_t>(dividend);
+  uint64_t const abs_divisor = divisor < 0 ? 0ULL - static_cast<uint64_t>(divisor) : static_cast<uint64_t>(divisor);
 
   // Use unsigned algorithm
   uint64_t const result = u64div::opt_cal(abs_dividend, abs_divisor);

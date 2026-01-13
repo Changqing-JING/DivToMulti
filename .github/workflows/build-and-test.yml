@@ -1,0 +1,49 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build and Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+          sudo apt-get update && sudo apt-get install -y cmake make g++
+        elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+          brew install cmake make
+        fi
+
+    - if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Configure project
+      run: |
+        cmake -S . -B build
+
+    - name: Build project (Release)
+      run: |
+        cmake --build build --config Release
+
+    - name: Run executable
+      run: |
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          .\\build\\Release\\DivToMulti.exe
+        else
+          ./build/DivToMulti
+        fi
