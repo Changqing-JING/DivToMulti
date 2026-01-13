@@ -41,7 +41,16 @@ uint64_t normal_cal(uint64_t dividend, uint64_t divisor) {
   return dividend / divisor;
 }
 
-void test() {
+template <uint64_t B> uint64_t opt_rem(uint64_t dividend, uint64_t divisor) {
+  uint64_t quotient = opt_cal<B>(dividend, divisor);
+  return dividend - divisor * quotient;
+}
+
+uint64_t normal_rem(uint64_t dividend, uint64_t divisor) {
+  return dividend % divisor;
+}
+
+void test_div() {
   for (uint64_t dividend = 0; dividend <= static_cast<uint64_t>((1ULL << T) - 1); ++dividend) {
     if (dividend % 1024 == 0) {
       std::cout << "Processing dividend: " << dividend << std::endl;
@@ -51,6 +60,22 @@ void test() {
       uint64_t const expected = u32div::normal_cal(dividend, divisor);
       if (result != expected) {
         std::cout << "Error: " << dividend << " / " << divisor << " = " << result << " instead " << expected << std::endl;
+        std::terminate();
+      }
+    }
+  }
+}
+
+void test_rem() {
+  for (uint64_t dividend = 0; dividend <= static_cast<uint64_t>((1ULL << T) - 1); ++dividend) {
+    if (dividend % 1024 == 0) {
+      std::cout << "Processing rem dividend: " << dividend << std::endl;
+    }
+    for (uint64_t divisor = 1; divisor <= static_cast<uint64_t>((1ULL << T) - 1); ++divisor) {
+      uint64_t const result = u32div::opt_rem<32>(dividend, divisor);
+      uint64_t const expected = u32div::normal_rem(dividend, divisor);
+      if (result != expected) {
+        std::cout << "Error: " << dividend << " % " << divisor << " = " << result << " instead " << expected << std::endl;
         std::terminate();
       }
     }
@@ -85,7 +110,16 @@ int64_t normal_cal(int64_t dividend, int64_t divisor) {
   return dividend / divisor;
 }
 
-void test() {
+template <uint64_t B> int64_t opt_rem_signed(int64_t dividend, int64_t divisor) {
+  int64_t quotient = opt_cal_signed<B>(dividend, divisor);
+  return dividend - divisor * quotient;
+}
+
+int64_t normal_rem(int64_t dividend, int64_t divisor) {
+  return dividend % divisor;
+}
+
+void test_div() {
   int64_t const min_val = -(1LL << (T - 1));
   int64_t const max_val = (1LL << (T - 1)) - 1;
 
@@ -106,10 +140,34 @@ void test() {
     }
   }
 }
+
+void test_rem() {
+  int64_t const min_val = -(1LL << (T - 1));
+  int64_t const max_val = (1LL << (T - 1)) - 1;
+
+  for (int64_t dividend = min_val; dividend <= max_val; ++dividend) {
+    if ((dividend - min_val) % 1024 == 0) {
+      std::cout << "Processing signed rem dividend: " << dividend << std::endl;
+    }
+    for (int64_t divisor = min_val; divisor <= max_val; ++divisor) {
+      if (divisor == 0)
+        continue; // Skip division by zero
+
+      int64_t const result = i32div::opt_rem_signed<32>(dividend, divisor);
+      int64_t const expected = i32div::normal_rem(dividend, divisor);
+      if (result != expected) {
+        std::cout << "Error: " << dividend << " % " << divisor << " = " << result << " instead " << expected << std::endl;
+        std::terminate();
+      }
+    }
+  }
+}
 } // namespace i32div
 
 int main() {
-  u32div::test();
-  i32div::test();
+  u32div::test_div();
+  u32div::test_rem();
+  i32div::test_div();
+  i32div::test_rem();
   return 0;
 }
