@@ -1,8 +1,8 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include <exception>
+#include <iostream>
 #ifdef _MSC_VER
 #include <__msvc_int128.hpp>
 #include <intrin.h>
@@ -243,12 +243,13 @@ uint64_t opt_cal(uint64_t dividend, uint64_t divisor) {
   uint128 const m = get_m_128(k, divisor);
 
   uint64_t const m_low = static_cast<uint64_t>(m);
-  uint64_t const m_high = static_cast<uint64_t>(m >> 64);
 
-  uint64_t const prod_low_high = umulh(dividend, m_low);
-  uint128 const high_128 = static_cast<uint128>(m_high) * dividend + prod_low_high;
-
-  return static_cast<uint64_t>(high_128 >> (k - B));
+  // Compute (dividend + ((dividend * m_low) >> B)) >> (k - B)
+  // Use 128-bit arithmetic to avoid overflow
+  uint128 const dividend_128 = static_cast<uint128>(dividend);
+  uint64_t const term = umulh(dividend, m_low);
+  uint128 const sum = dividend_128 + static_cast<uint128>(term);
+  return static_cast<uint64_t>(sum >> (k - B));
 }
 
 uint64_t normal_cal(uint64_t dividend, uint64_t divisor) {
@@ -317,7 +318,6 @@ void test_overflow_cases() {
       }
     }
   }
-
 }
 
 } // namespace u64div
