@@ -40,6 +40,30 @@ uint64_t clzll(uint64_t x) {
 #endif
 }
 
+uint32_t ctz(uint32_t x) {
+#ifdef _MSC_VER
+  unsigned long index;
+  if (_BitScanForward(&index, x)) {
+    return index;
+  }
+  return 32U;
+#else
+  return static_cast<uint32_t>(__builtin_ctz(x));
+#endif
+}
+
+uint64_t ctzll(uint64_t x) {
+#ifdef _MSC_VER
+  unsigned long index;
+  if (_BitScanForward64(&index, x)) {
+    return index;
+  }
+  return 64ULL;
+#else
+  return static_cast<uint64_t>(__builtin_ctzll(x));
+#endif
+}
+
 constexpr size_t T = 12U;
 
 // =============================================================================
@@ -319,7 +343,7 @@ int32_t opt_cal_signed(int32_t dividend, int32_t divisor) {
 
   // Check if divisor is power of 2
   if ((abs_divisor & (abs_divisor - 1)) == 0) {
-    uint32_t const shift = static_cast<uint32_t>(__builtin_ctz(static_cast<uint32_t>(abs_divisor)));
+    uint32_t const shift = ctz(static_cast<uint32_t>(abs_divisor));
     int32_t const sign_correction = (dividend >> 31) & (abs_divisor - 1);
     int32_t q = (dividend + sign_correction) >> shift;
     if (divisor < 0) {
@@ -547,7 +571,7 @@ int64_t opt_cal_signed(int64_t dividend, int64_t divisor) {
 
   // Check if divisor is power of 2
   if ((abs_divisor & (abs_divisor - 1)) == 0) {
-    uint64_t const shift = static_cast<uint64_t>(__builtin_ctzll(static_cast<uint64_t>(abs_divisor)));
+    uint64_t const shift = ctzll(static_cast<uint64_t>(abs_divisor));
     int64_t const sign_correction = (dividend >> 63) & (abs_divisor - 1);
     int64_t q = (dividend + sign_correction) >> shift;
     if (divisor < 0) {
